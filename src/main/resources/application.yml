@@ -1,0 +1,65 @@
+spring:
+  profiles:
+    active: dev
+  application:
+    name: keystone-backend
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/keystone}
+    username: ${DB_USER:keystone}
+    password: ${DB_PASSWORD:keystone_password}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+jwt:
+  secret: ${JWT_SECRET:8253a6a9b407b8979313db4331032df4c4cb8452dc97cc17bc83f06e5fa3f061}
+  expiry-minutes: ${JWT_EXPIRY_MINUTES:1440}
+
+storage:
+  provider: ${STORAGE_PROVIDER:s3}
+  endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+  bucket: ${STORAGE_BUCKET:keystone-bucket}
+  access-key: ${STORAGE_ACCESS_KEY:minioadmin}
+  secret-key: ${STORAGE_SECRET_KEY:minioadmin}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  flyway:
+    enabled: true
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiry-minutes: ${JWT_EXPIRY_MINUTES}
+
+storage:
+  provider: ${STORAGE_PROVIDER}
+  endpoint: ${STORAGE_ENDPOINT}
+  bucket: ${STORAGE_BUCKET}
+  access-key: ${STORAGE_ACCESS_KEY}
+  secret-key: ${STORAGE_SECRET_KEY}
