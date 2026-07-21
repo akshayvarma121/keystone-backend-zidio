@@ -35,6 +35,11 @@ public class WorkOrderService {
     private final PartRepository partRepository;
     private final PartUsageRepository partUsageRepository;
     private final TimeLogRepository timeLogRepository;
+    private final com.zidio.keystone.repository.AttachmentRepository attachmentRepository;
+    private final com.zidio.keystone.service.storage.ObjectStorageService objectStorageService;
+    private final com.zidio.keystone.repository.CommentRepository commentRepository;
+    private final com.zidio.keystone.repository.NotificationRepository notificationRepository;
+    private final com.zidio.keystone.repository.WorkOrderRatingRepository ratingRepository;
 
     @Transactional
     public WorkOrderResponse createWorkOrder(WorkOrderRequest request) {
@@ -47,6 +52,16 @@ public class WorkOrderService {
             throw new AccessDeniedException("Technicians cannot create work orders");
         }
 
+        User creator = userRepository.getReferenceById(user.getId());
+        return internalCreateWorkOrder(request, creator);
+    }
+    
+    @Transactional
+    public WorkOrderResponse createScheduledWorkOrder(WorkOrderRequest request, User creator) {
+        return internalCreateWorkOrder(request, creator);
+    }
+
+    private WorkOrderResponse internalCreateWorkOrder(WorkOrderRequest request, User creator) {
         Customer customer = customerRepository.findById(request.getCustomerId())
                 .orElseThrow(() -> new EntityNotFoundException("Customer not found: " + request.getCustomerId()));
         Site site = siteRepository.findById(request.getSiteId())
@@ -56,6 +71,13 @@ public class WorkOrderService {
         if (request.getAssignedTo() != null) {
             assignedTo = userRepository.findById(request.getAssignedTo())
                     .orElseThrow(() -> new EntityNotFoundException("Assignee not found"));
+        }
+        
+        if (creator.getRole() == Role.CUSTOMER) {
+            if (!site.getCustomer().getId().equals(request.getCustomerId())) {
+                throw new AccessDeniedException("Cannot create work order for a site that belongs to another customer");
+            }
+            assignedTo = null; // Customers cannot assign work orders
         }
 
         Skill requiredSkill = null;
@@ -73,6 +95,7 @@ public class WorkOrderService {
         wo.setSite(site);
         wo.setAssignedTo(assignedTo);
         wo.setRequiredSkill(requiredSkill);
+        wo.setCreatedBy(creator);
         
         wo.setSlaDueAt(computeSla(wo.getPriority()));
         
@@ -82,20 +105,20 @@ public class WorkOrderService {
 
         wo = workOrderRepository.save(wo);
 
-        User actingUser = userRepository.getReferenceById(user.getId());
         WorkOrderStatusHistory history = new WorkOrderStatusHistory();
         history.setWorkOrder(wo);
         history.setToStatus(wo.getStatus());
-        history.setChangedBy(actingUser);
+        history.setChangedBy(creator);
         history.setNote("Created Work Order");
         historyRepository.save(history);
 
-        return WorkOrderMapper.toResponse(wo);
+        return WorkOrderMapper.toResponse(wo, creator.getRole());
     }
 
     @Transactional(readOnly = true)
     public WorkOrderDetailsResponse getWorkOrder(UUID id) {
         WorkOrder wo = getAndCheckAccess(id);
+        KeystoneUserDetails user = SecurityUtils.getCurrentUser();
         List<WorkOrderStatusHistory> history = historyRepository.findByWorkOrderIdOrderByChangedAtDesc(id);
         List<PartUsage> partsUsed = partUsageRepository.findByWorkOrderIdOrderByLoggedAtDesc(id);
         List<TimeLog> timeLogs = timeLogRepository.findByWorkOrderIdOrderByLoggedAtDesc(id);
@@ -138,8 +161,8 @@ public class WorkOrderService {
         }
 
         return WorkOrderDetailsResponse.builder()
-                .workOrder(WorkOrderMapper.toResponse(wo))
-                .history(history.stream().map(WorkOrderMapper::toHistoryResponse).collect(Collectors.toList()))
+                .workOrder(WorkOrderMapper.toResponse(wo, user.getRole()))
+                .history(history.stream().map(h -> WorkOrderMapper.toHistoryResponse(h, user.getRole())).collect(Collectors.toList()))
                 .partsUsed(partsResp)
                 .timeLogs(timeResp)
                 .partsCost(partsCost)
@@ -149,7 +172,34 @@ public class WorkOrderService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<WorkOrderResponse> searchWorkOrders(
+    public PageResponse<WorkOrderResponse> searchWorkOrders(String q, Pageable pageable) {
+        KeystoneUserDetails user = SecurityUtils.getCurrentUser();
+        String customerIdStr = user.getCustomerId() != null ? user.getCustomerId().toString() : null;
+        String userIdStr = user.getId().toString();
+        
+        Page<WorkOrder> page = workOrderRepository.fullTextSearch(
+                q, 
+                user.getRole().name(), 
+                customerIdStr, 
+                userIdStr, 
+                pageable);
+                
+        List<WorkOrderResponse> content = page.getContent().stream()
+                .map(wo -> WorkOrderMapper.toResponse(wo, user.getRole()))
+                .collect(Collectors.toList());
+
+        return new PageResponse<>(
+                content,
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages(),
+                page.isLast()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<WorkOrderResponse> getWorkOrders(
             String title, WorkOrderStatus status, Priority priority,
             UUID assignedTo, UUID customerId, UUID siteId, Pageable pageable) {
         
@@ -165,8 +215,40 @@ public class WorkOrderService {
 
         Page<WorkOrder> page = workOrderRepository.searchWorkOrders(
                 title, status, priority, scopeAssignedTo, scopeCustomerId, siteId, pageable);
+        return PageResponse.of(page.map(wo -> WorkOrderMapper.toResponse(wo, user.getRole())));
+    }
+
+    @Transactional
+    public void rateWorkOrder(UUID id, com.zidio.keystone.dto.request.WorkOrderRatingRequest request) {
+        KeystoneUserDetails user = SecurityUtils.getCurrentUser();
+        if (user.getRole() != Role.CUSTOMER) {
+            throw new AccessDeniedException("Only customers can rate work orders");
+        }
+
+        WorkOrder wo = getAndCheckAccess(id);
         
-        return PageResponse.of(page.map(WorkOrderMapper::toResponse));
+        if (wo.getStatus() != WorkOrderStatus.CLOSED) {
+            throw new IllegalStateException("Can only rate CLOSED work orders");
+        }
+
+        if (ratingRepository.existsByWorkOrderId(id)) {
+            throw new IllegalStateException("Work order has already been rated");
+        }
+
+        User creator = userRepository.getReferenceById(user.getId());
+        
+        WorkOrderRating rating = WorkOrderRating.builder()
+                .workOrder(wo)
+                .rating(request.getRating())
+                .comment(request.getComment())
+                .createdBy(creator)
+                .build();
+                
+        ratingRepository.save(rating);
+        
+        // Update the denormalized field on WorkOrder
+        wo.setSatisfactionRating(request.getRating());
+        workOrderRepository.save(wo);
     }
 
     @Transactional(readOnly = true)
@@ -178,7 +260,7 @@ public class WorkOrderService {
         List<WorkOrder> boardItems = workOrderRepository.getBoard(scopeAssignedTo, scopeCustomerId);
         
         return boardItems.stream()
-                .map(WorkOrderMapper::toResponse)
+                .map(wo -> WorkOrderMapper.toResponse(wo, user.getRole()))
                 .collect(Collectors.groupingBy(WorkOrderResponse::getStatus));
     }
 
@@ -314,6 +396,165 @@ public class WorkOrderService {
                 .note(tl.getNote())
                 .loggedAt(tl.getLoggedAt())
                 .build();
+    }
+
+    @Transactional
+    public com.zidio.keystone.dto.response.AttachmentResponse uploadAttachment(UUID workOrderId, org.springframework.web.multipart.MultipartFile file) {
+        WorkOrder wo = getAndCheckAccess(workOrderId);
+        KeystoneUserDetails userDetails = SecurityUtils.getCurrentUser();
+        
+        if (userDetails.getRole() == Role.TECHNICIAN && (wo.getAssignedTo() == null || !wo.getAssignedTo().getId().equals(userDetails.getId()))) {
+            throw new AccessDeniedException("Only the assigned technician can upload attachments");
+        }
+
+        if (file.getSize() > 10 * 1024 * 1024) {
+            throw new com.zidio.keystone.exception.InvalidFileException("File size exceeds 10MB limit");
+        }
+        
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new com.zidio.keystone.exception.InvalidFileException("Only image files are allowed");
+        }
+
+        UUID attachmentId = UUID.randomUUID();
+        String storageKey = "attachments/" + wo.getId() + "/" + attachmentId + "_" + file.getOriginalFilename();
+
+        try {
+            objectStorageService.upload(storageKey, file.getInputStream(), contentType, file.getSize());
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Failed to read file input stream", e);
+        }
+
+        User actingUser = userRepository.getReferenceById(userDetails.getId());
+
+        com.zidio.keystone.domain.Attachment attachment = new com.zidio.keystone.domain.Attachment();
+        attachment.setId(attachmentId);
+        attachment.setWorkOrder(wo);
+        attachment.setFileName(file.getOriginalFilename());
+        attachment.setContentType(contentType);
+        attachment.setSizeBytes(file.getSize());
+        attachment.setStorageKey(storageKey);
+        attachment.setUploadedBy(actingUser);
+        
+        attachment = attachmentRepository.save(attachment);
+
+        return com.zidio.keystone.dto.response.AttachmentResponse.builder()
+                .id(attachment.getId())
+                .fileName(attachment.getFileName())
+                .contentType(attachment.getContentType())
+                .sizeBytes(attachment.getSizeBytes())
+                .uploadedById(actingUser.getId())
+                .uploadedByName(actingUser.getName())
+                .uploadedAt(attachment.getUploadedAt())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.zidio.keystone.dto.response.AttachmentResponse> getAttachments(UUID workOrderId) {
+        getAndCheckAccess(workOrderId); // verify access
+        return attachmentRepository.findByWorkOrderIdOrderByUploadedAtDesc(workOrderId).stream()
+                .map(a -> com.zidio.keystone.dto.response.AttachmentResponse.builder()
+                        .id(a.getId())
+                        .fileName(a.getFileName())
+                        .contentType(a.getContentType())
+                        .sizeBytes(a.getSizeBytes())
+                        .uploadedById(a.getUploadedBy().getId())
+                        .uploadedByName(a.getUploadedBy().getName())
+                        .uploadedAt(a.getUploadedAt())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public org.springframework.core.io.InputStreamResource downloadAttachment(UUID workOrderId, UUID attachmentId) {
+        getAndCheckAccess(workOrderId); // verify access to the work order
+        com.zidio.keystone.domain.Attachment attachment = attachmentRepository.findById(attachmentId)
+                .orElseThrow(() -> new EntityNotFoundException("Attachment not found"));
+                
+        if (!attachment.getWorkOrder().getId().equals(workOrderId)) {
+            throw new AccessDeniedException("Attachment does not belong to this work order");
+        }
+        
+        return new org.springframework.core.io.InputStreamResource(objectStorageService.download(attachment.getStorageKey()));
+    }
+    
+    @Transactional(readOnly = true)
+    public com.zidio.keystone.domain.Attachment getAttachmentMetadata(UUID workOrderId, UUID attachmentId) {
+        getAndCheckAccess(workOrderId);
+        com.zidio.keystone.domain.Attachment attachment = attachmentRepository.findById(attachmentId)
+                .orElseThrow(() -> new EntityNotFoundException("Attachment not found"));
+                
+        if (!attachment.getWorkOrder().getId().equals(workOrderId)) {
+            throw new AccessDeniedException("Attachment does not belong to this work order");
+        }
+        return attachment;
+    }
+
+    @Transactional
+    public com.zidio.keystone.dto.response.CommentResponse createComment(UUID workOrderId, com.zidio.keystone.dto.request.CommentRequest request) {
+        WorkOrder wo = getAndCheckAccess(workOrderId);
+        KeystoneUserDetails userDetails = SecurityUtils.getCurrentUser();
+        User author = userRepository.getReferenceById(userDetails.getId());
+
+        com.zidio.keystone.domain.Comment comment = new com.zidio.keystone.domain.Comment();
+        comment.setWorkOrder(wo);
+        comment.setAuthor(author);
+        comment.setContent(request.getContent());
+        comment = commentRepository.save(comment);
+
+        java.util.Set<UUID> targetUserIds = new java.util.HashSet<>();
+        
+        if (wo.getAssignedTo() != null && !wo.getAssignedTo().getId().equals(author.getId())) {
+            targetUserIds.add(wo.getAssignedTo().getId());
+        }
+        
+        if (wo.getCreatedBy() != null && !wo.getCreatedBy().getId().equals(author.getId())) {
+            targetUserIds.add(wo.getCreatedBy().getId());
+        }
+
+        for (UUID targetId : targetUserIds) {
+            com.zidio.keystone.domain.Notification notif = new com.zidio.keystone.domain.Notification();
+            notif.setUser(userRepository.getReferenceById(targetId));
+            notif.setWorkOrder(wo);
+            notif.setType(com.zidio.keystone.domain.NotificationType.NEW_COMMENT);
+            notif.setMessage("New comment on work order " + wo.getCode() + " by " + userDetails.getName());
+            notificationRepository.save(notif);
+        }
+
+        return com.zidio.keystone.dto.response.CommentResponse.builder()
+                .id(comment.getId())
+                .content(comment.getContent())
+                .authorId(author.getId())
+                .authorName(userDetails.getName())
+                .authorRole(userDetails.getRole())
+                .createdAt(comment.getCreatedAt())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public com.zidio.keystone.dto.response.PageResponse<com.zidio.keystone.dto.response.CommentResponse> getComments(UUID workOrderId, org.springframework.data.domain.Pageable pageable) {
+        getAndCheckAccess(workOrderId);
+        org.springframework.data.domain.Page<com.zidio.keystone.domain.Comment> page = commentRepository.findByWorkOrderIdOrderByCreatedAtAsc(workOrderId, pageable);
+        
+        List<com.zidio.keystone.dto.response.CommentResponse> content = page.getContent().stream()
+                .map(c -> com.zidio.keystone.dto.response.CommentResponse.builder()
+                        .id(c.getId())
+                        .content(c.getContent())
+                        .authorId(c.getAuthor().getId())
+                        .authorName(c.getAuthor().getName())
+                        .authorRole(c.getAuthor().getRole())
+                        .createdAt(c.getCreatedAt())
+                        .build())
+                .collect(Collectors.toList());
+                
+        return new com.zidio.keystone.dto.response.PageResponse<>(
+                content,
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages(),
+                page.isLast()
+        );
     }
 
     private WorkOrder getAndCheckAccess(UUID id) {
