@@ -64,9 +64,30 @@ docker run -d \
   keystone-backend:latest
 ```
 
-### Alternative: Platform-as-a-Service (PaaS)
-If you don't want to manage a raw Linux server, platforms like **Render.com** or **Heroku** make this trivial:
-1. Connect your GitHub repository to Render/Heroku.
-2. Select "Docker" as the runtime.
-3. Plug in the environment variables (DB_URL, JWT_SECRET, etc.) into the dashboard.
-4. Click Deploy. The platform will automatically build the `Dockerfile` and expose it securely to the web with an SSL certificate.
+### Alternative: Platform-as-a-Service (Render.com)
+If you don't want to manage a raw Linux server, **Render.com** is an excellent and free/cheap option. It will pull your code directly from GitHub, build the Docker image, and host it.
+
+#### Step 1: Create a PostgreSQL Database on Render
+1. Go to your Render Dashboard and click **New +** > **PostgreSQL**.
+2. Name it (e.g., `keystone-db`), select a region, and choose the Free tier.
+3. Once created, look for the **Internal Database URL** (it starts with `postgres://...`). You will need this for the backend.
+
+#### Step 2: Deploy the Backend Application
+1. Go back to the Dashboard and click **New +** > **Web Service**.
+2. Connect your GitHub account and select your `keystone-backend-zidio` repository.
+3. Render should automatically detect the `Dockerfile` and set the Environment to "Docker".
+4. Scroll down to **Environment Variables** and add the following:
+
+| Key | Value |
+| --- | ----- |
+| `SPRING_PROFILES_ACTIVE` | `prod` |
+| `DB_URL` | *Paste the Internal Database URL from Step 1 but replace `postgres://` with `jdbc:postgresql://`* |
+| `DB_USER` | *The username from your Render DB dashboard* |
+| `DB_PASSWORD` | *The password from your Render DB dashboard* |
+| `JWT_SECRET` | *Generate a random secure string (e.g., `mYvErYsEcReTkEy1234567890qwertyuiop`)* |
+
+*(If you are using S3 for attachments, also add `STORAGE_PROVIDER=s3`, `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY`, and `STORAGE_SECRET_KEY`)*
+
+5. Click **Create Web Service**. 
+Render will now build your Docker image and deploy it. Flyway will automatically run the migrations and seed the database upon startup. 
+Your API will be live at the `.onrender.com` URL provided at the top of the page!
