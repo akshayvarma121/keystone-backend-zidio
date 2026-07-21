@@ -71,7 +71,7 @@ public class WorkOrderLifecycle {
 
         writeHistory(wo, fromStatus, ASSIGNED, user.getId(), note);
 
-        return WorkOrderMapper.toResponse(wo);
+        return WorkOrderMapper.toResponse(wo, user.getRole());
     }
 
     @Transactional
@@ -93,7 +93,7 @@ public class WorkOrderLifecycle {
 
         writeHistory(wo, currentStatus, targetStatus, user.getId(), note);
 
-        return WorkOrderMapper.toResponse(wo);
+        return WorkOrderMapper.toResponse(wo, user.getRole());
     }
 
     private void checkRoleGates(WorkOrder wo, WorkOrderStatus targetStatus, KeystoneUserDetails user) {

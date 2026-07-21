@@ -317,7 +317,7 @@ public class WorkOrderService {
         }
 
         wo = workOrderRepository.save(wo);
-        return WorkOrderMapper.toResponse(wo);
+        return WorkOrderMapper.toResponse(wo, user.getRole());
     }
 
     @Transactional(readOnly = true)
@@ -504,7 +504,7 @@ public class WorkOrderService {
     public com.zidio.keystone.dto.response.CommentResponse createComment(UUID workOrderId, com.zidio.keystone.dto.request.CommentRequest request) {
         WorkOrder wo = getAndCheckAccess(workOrderId);
         KeystoneUserDetails userDetails = SecurityUtils.getCurrentUser();
-        User author = userRepository.getReferenceById(userDetails.getId());
+        User author = userRepository.findById(userDetails.getId()).orElseThrow();
 
         com.zidio.keystone.domain.Comment comment = new com.zidio.keystone.domain.Comment();
         comment.setWorkOrder(wo);
@@ -527,7 +527,7 @@ public class WorkOrderService {
             notif.setUser(userRepository.getReferenceById(targetId));
             notif.setWorkOrder(wo);
             notif.setType(com.zidio.keystone.domain.NotificationType.NEW_COMMENT);
-            notif.setMessage("New comment on work order " + wo.getCode() + " by " + userDetails.getName());
+            notif.setMessage("New comment on work order " + wo.getCode() + " by " + author.getName());
             notificationRepository.save(notif);
         }
 
@@ -535,7 +535,7 @@ public class WorkOrderService {
                 .id(comment.getId())
                 .content(comment.getContent())
                 .authorId(author.getId())
-                .authorName(userDetails.getName())
+                .authorName(author.getName())
                 .authorRole(userDetails.getRole())
                 .createdAt(comment.getCreatedAt())
                 .build();
