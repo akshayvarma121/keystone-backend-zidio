@@ -69,6 +69,9 @@ public class WorkOrder {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    @Column(name = "satisfaction_rating")
+    private Integer satisfactionRating;
+
     @Version
     @Column(name = "version", nullable = false)
     private Long version = 0L;

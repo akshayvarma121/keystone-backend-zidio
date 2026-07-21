@@ -30,6 +30,10 @@ public class Part {
     @Column(name = "stock_qty", nullable = false)
     private Integer stockQty;
 
+    @Column(name = "reorder_threshold", nullable = false)
+    @Builder.Default
+    private Integer reorderThreshold = 5;
+
     @Version
     @Column(name = "version", nullable = false)
     @Builder.Default
