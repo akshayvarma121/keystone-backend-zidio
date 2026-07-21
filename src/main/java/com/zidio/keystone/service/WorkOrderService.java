@@ -177,14 +177,24 @@ public class WorkOrderService {
         String customerIdStr = user.getCustomerId() != null ? user.getCustomerId().toString() : null;
         String userIdStr = user.getId().toString();
         
-        Page<WorkOrder> page = workOrderRepository.fullTextSearch(
+        Page<String> page = workOrderRepository.fullTextSearchIds(
                 q, 
                 user.getRole().name(), 
                 customerIdStr, 
                 userIdStr, 
                 pageable);
                 
-        List<WorkOrderResponse> content = page.getContent().stream()
+        List<UUID> ids = page.getContent().stream()
+                .map(UUID::fromString)
+                .collect(Collectors.toList());
+                
+        List<WorkOrder> hydrated = ids.isEmpty() ? List.of() : workOrderRepository.findByIdInWithRelations(ids);
+        
+        // Re-sort hydrated based on the original native query order (ids list)
+        Map<UUID, WorkOrder> woMap = hydrated.stream().collect(Collectors.toMap(WorkOrder::getId, w -> w));
+        List<WorkOrderResponse> content = ids.stream()
+                .map(woMap::get)
+                .filter(java.util.Objects::nonNull)
                 .map(wo -> WorkOrderMapper.toResponse(wo, user.getRole()))
                 .collect(Collectors.toList());
 
@@ -558,7 +568,7 @@ public class WorkOrderService {
     }
 
     private WorkOrder getAndCheckAccess(UUID id) {
-        WorkOrder wo = workOrderRepository.findById(id)
+        WorkOrder wo = workOrderRepository.findByIdWithRelations(id)
                 .orElseThrow(() -> new EntityNotFoundException("WorkOrder not found: " + id));
 
         KeystoneUserDetails user = SecurityUtils.getCurrentUser();

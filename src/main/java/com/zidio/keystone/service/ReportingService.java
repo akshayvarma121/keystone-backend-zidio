@@ -30,6 +30,7 @@ public class ReportingService {
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('MANAGER', 'DISPATCHER')")
+    @org.springframework.cache.annotation.Cacheable(value = "dashboardSummary", sync = true)
     public ReportSummaryResponse getSummary(OffsetDateTime startDate, OffsetDateTime endDate, UUID siteId, UUID technicianId) {
         
         List<StatusCountProjection> statusCounts = workOrderRepository.getStatusCounts(startDate, endDate, siteId, technicianId);

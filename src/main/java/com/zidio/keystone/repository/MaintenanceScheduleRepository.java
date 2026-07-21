@@ -10,5 +10,10 @@ import java.util.UUID;
 
 @Repository
 public interface MaintenanceScheduleRepository extends JpaRepository<MaintenanceSchedule, UUID> {
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"customer", "site", "requiredSkill", "assignedTo"})
     List<MaintenanceSchedule> findByActiveTrueAndNextRunAtBefore(OffsetDateTime now);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"customer", "site", "requiredSkill", "assignedTo"})
+    @org.springframework.lang.NonNull
+    List<MaintenanceSchedule> findAll();
 }

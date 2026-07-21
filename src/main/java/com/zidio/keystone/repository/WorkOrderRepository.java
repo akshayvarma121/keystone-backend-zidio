@@ -19,6 +19,7 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, UUID> {
     @Query(value = "SELECT nextval('work_order_seq')", nativeQuery = true)
     Long getNextSequence();
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"customer", "site", "assignedTo", "requiredSkill"})
     @Query("SELECT w FROM WorkOrder w WHERE " +
            "(:title IS NULL OR LOWER(w.title) LIKE LOWER(CONCAT('%', CAST(:title AS string), '%'))) AND " +
            "(:status IS NULL OR w.status = :status) AND " +
@@ -35,6 +36,7 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, UUID> {
             @Param("siteId") UUID siteId,
             Pageable pageable);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"customer", "site", "assignedTo", "requiredSkill"})
     @Query("SELECT w FROM WorkOrder w WHERE " +
            "w.status NOT IN ('CLOSED', 'CANCELLED') AND " +
            "(:assignedTo IS NULL OR w.assignedTo.id = :assignedTo) AND " +
@@ -42,7 +44,7 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, UUID> {
     List<WorkOrder> getBoard(@Param("assignedTo") UUID assignedTo, @Param("customerId") UUID customerId);
 
     @Query(value = """
-        SELECT * FROM work_orders w 
+        SELECT cast(w.id as varchar) FROM work_orders w 
         WHERE w.search_vector @@ plainto_tsquery('english', :q)
         AND (
             :role = 'MANAGER' OR :role = 'DISPATCHER'
@@ -59,12 +61,16 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, UUID> {
             OR (:role = 'TECHNICIAN' AND w.assigned_to = CAST(:userId AS UUID))
         )
     """, nativeQuery = true)
-    Page<WorkOrder> fullTextSearch(
+    Page<String> fullTextSearchIds(
             @Param("q") String q, 
             @Param("role") String role, 
             @Param("customerId") String customerId, 
             @Param("userId") String userId, 
             Pageable pageable);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"customer", "site", "assignedTo", "requiredSkill"})
+    @Query("SELECT w FROM WorkOrder w WHERE w.id IN :ids")
+    List<WorkOrder> findByIdInWithRelations(@Param("ids") List<UUID> ids);
 
     @Query("SELECT w.status as status, COUNT(w) as count FROM WorkOrder w WHERE " +
            "(:startDate IS NULL OR w.createdAt >= :startDate) AND " +
@@ -139,4 +145,7 @@ public interface WorkOrderRepository extends JpaRepository<WorkOrder, UUID> {
             @Param("endDate") java.time.OffsetDateTime endDate,
             @Param("siteId") UUID siteId,
             @Param("technicianId") UUID technicianId);
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"customer", "site", "assignedTo", "requiredSkill"})
+    @Query("SELECT w FROM WorkOrder w WHERE w.id = :id")
+    java.util.Optional<WorkOrder> findByIdWithRelations(@Param("id") UUID id);
 }
