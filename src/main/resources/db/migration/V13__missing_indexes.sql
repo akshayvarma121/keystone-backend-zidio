@@ -18,8 +18,8 @@ CREATE INDEX IF NOT EXISTS idx_user_skills_skill_id ON user_skills(skill_id);
 CREATE INDEX IF NOT EXISTS idx_attachments_wo_id ON work_order_attachments(work_order_id);
 CREATE INDEX IF NOT EXISTS idx_attachments_upl_by ON work_order_attachments(uploaded_by);
 
-CREATE INDEX IF NOT EXISTS idx_comments_wo_id ON comments(work_order_id);
-CREATE INDEX IF NOT EXISTS idx_comments_auth_id ON comments(author_id);
+CREATE INDEX IF NOT EXISTS idx_comments_wo_id ON work_order_comments(work_order_id);
+CREATE INDEX IF NOT EXISTS idx_comments_auth_id ON work_order_comments(author_id);
 
 CREATE INDEX IF NOT EXISTS idx_notif_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notif_wo_id ON notifications(work_order_id);
@@ -28,7 +28,7 @@ CREATE INDEX IF NOT EXISTS idx_maint_sched_cust_id ON maintenance_schedules(cust
 CREATE INDEX IF NOT EXISTS idx_maint_sched_site_id ON maintenance_schedules(site_id);
 CREATE INDEX IF NOT EXISTS idx_maint_sched_req_skill ON maintenance_schedules(required_skill_id);
 CREATE INDEX IF NOT EXISTS idx_maint_sched_created_by ON maintenance_schedules(created_by);
-CREATE INDEX IF NOT EXISTS idx_maint_sched_assigned_to ON maintenance_schedules(assigned_to);
+
 
 CREATE INDEX IF NOT EXISTS idx_worating_created_by ON work_order_ratings(created_by);
 CREATE INDEX IF NOT EXISTS idx_wo_created_at ON work_orders(created_at);
