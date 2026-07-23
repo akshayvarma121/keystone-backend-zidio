@@ -35,7 +35,8 @@ public class ReportingService {
         
         List<StatusCountProjection> statusCounts = workOrderRepository.getStatusCounts(startDate, endDate, siteId, technicianId);
         Map<WorkOrderStatus, Long> countsByStatus = statusCounts.stream()
-                .collect(Collectors.toMap(StatusCountProjection::getStatus, StatusCountProjection::getCount));
+                .filter(sc -> sc != null && sc.getStatus() != null)
+                .collect(Collectors.toMap(StatusCountProjection::getStatus, StatusCountProjection::getCount, (v1, v2) -> v1));
 
         long overdueCount = workOrderRepository.getOverdueCount(startDate, endDate, siteId, technicianId);
 
@@ -50,11 +51,13 @@ public class ReportingService {
 
         List<StringCountProjection> techBreakdown = workOrderRepository.getBreakdownByTechnician(startDate, endDate, siteId, technicianId);
         Map<String, Long> breakdownByTechnician = techBreakdown.stream()
-                .collect(Collectors.toMap(StringCountProjection::getLabel, StringCountProjection::getCount));
+                .filter(tb -> tb != null && tb.getLabel() != null)
+                .collect(Collectors.toMap(StringCountProjection::getLabel, StringCountProjection::getCount, (v1, v2) -> v1));
 
         List<StringCountProjection> siteBreakdown = workOrderRepository.getBreakdownBySite(startDate, endDate, siteId, technicianId);
         Map<String, Long> breakdownBySite = siteBreakdown.stream()
-                .collect(Collectors.toMap(StringCountProjection::getLabel, StringCountProjection::getCount));
+                .filter(sb -> sb != null && sb.getLabel() != null)
+                .collect(Collectors.toMap(StringCountProjection::getLabel, StringCountProjection::getCount, (v1, v2) -> v1));
 
         List<Part> parts = partRepository.findLowStockParts();
         List<PartLowStockDto> lowStockParts = parts.stream()
