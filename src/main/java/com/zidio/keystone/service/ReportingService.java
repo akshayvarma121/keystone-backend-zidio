@@ -42,9 +42,9 @@ public class ReportingService {
 
         SlaComplianceProjection slaProj = workOrderRepository.getSlaComplianceStats(startDate, endDate, siteId, technicianId);
         double compliancePercentage = 100.0;
-        if (slaProj != null && slaProj.getTotal() != null && slaProj.getTotal() > 0) {
-            long total = slaProj.getTotal();
-            long breached = slaProj.getBreached() != null ? slaProj.getBreached() : 0;
+        if (slaProj != null && slaProj.getTotal() != null && slaProj.getTotal().longValue() > 0) {
+            long total = slaProj.getTotal().longValue();
+            long breached = slaProj.getBreached() != null ? slaProj.getBreached().longValue() : 0L;
             long met = total - breached;
             compliancePercentage = ((double) met / total) * 100.0;
         }
