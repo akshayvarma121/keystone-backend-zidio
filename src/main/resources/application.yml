@@ -59,12 +59,12 @@ spring:
     enabled: true
 
 jwt:
-  secret: ${JWT_SECRET}
-  expiry-minutes: ${JWT_EXPIRY_MINUTES}
+  secret: ${JWT_SECRET:8253a6a9b407b8979313db4331032df4c4cb8452dc97cc17bc83f06e5fa3f061}
+  expiry-minutes: ${JWT_EXPIRY_MINUTES:1440}
 
 storage:
-  provider: ${STORAGE_PROVIDER}
-  endpoint: ${STORAGE_ENDPOINT}
-  bucket: ${STORAGE_BUCKET}
-  access-key: ${STORAGE_ACCESS_KEY}
-  secret-key: ${STORAGE_SECRET_KEY}
+  provider: ${STORAGE_PROVIDER:s3}
+  endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+  bucket: ${STORAGE_BUCKET:keystone-bucket}
+  access-key: ${STORAGE_ACCESS_KEY:minioadmin}
+  secret-key: ${STORAGE_SECRET_KEY:minioadmin}

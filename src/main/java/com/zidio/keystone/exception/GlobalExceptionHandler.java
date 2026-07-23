@@ -135,11 +135,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleAllOtherExceptions(Exception ex) {
+        ex.printStackTrace();
         ErrorResponse response = ErrorResponse.builder()
                 .timestamp(OffsetDateTime.now())
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .error("INTERNAL_ERROR")
-                .message("An unexpected error occurred")
+                .message(ex.getMessage() != null && !ex.getMessage().isBlank() ? ex.getMessage() : ex.getClass().getName())
                 .fieldErrors(List.of())
                 .build();
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
