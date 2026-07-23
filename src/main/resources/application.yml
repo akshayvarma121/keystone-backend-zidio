@@ -14,9 +14,9 @@ spring:
     activate:
       on-profile: dev
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/keystone}
-    username: ${DB_USER:keystone}
-    password: ${DB_PASSWORD:keystone_password}
+    url: ${DB_URL:jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres}
+    username: ${DB_USER:postgres.nefqnhtjitevctumuiqm}
+    password: ${DB_PASSWORD:rXtNEAmSFvGlK42p}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -47,9 +47,9 @@ spring:
     activate:
       on-profile: prod
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USER}
-    password: ${DB_PASSWORD}
+    url: ${DB_URL:jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres}
+    username: ${DB_USER:postgres.nefqnhtjitevctumuiqm}
+    password: ${DB_PASSWORD:rXtNEAmSFvGlK42p}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
