@@ -2,22 +2,22 @@
 -- Modifying an existing migration (V14) causes Flyway checksum errors or gets skipped,
 -- so this V15 migration guarantees the live Render database applies the fix.
 
--- Manager: sarah@keystone.io / manage123
+-- Manager: sarah@keystone.io / Password123!
 UPDATE users SET name = 'Sarah Jenkins', email = 'sarah@keystone.io',
-  password_hash = '$2a$10$iLIXoQLSkNtr/SAuDLroju97lGCb71KoAnUCnYQ4EhPLLLUZdCjYa'
+  password_hash = '$2a$12$rIK1ft2bXsdxB4Gq/AGn..N8W/JRdbBQZ3peXem0EAlI/BFBO9tjy'
 WHERE id = '33333333-3333-3333-3333-333333333331';
 
--- Dispatcher: dispatch@keystone.io / route456
+-- Dispatcher: dispatch@keystone.io / Password123!
 UPDATE users SET name = 'Marcus Vance', email = 'dispatch@keystone.io',
-  password_hash = '$2a$10$b7eLykIEyce6e6FHkhc.U.zLeXYqyFRmAUd5faK2LIipIp2AyFSoy'
+  password_hash = '$2a$12$rIK1ft2bXsdxB4Gq/AGn..N8W/JRdbBQZ3peXem0EAlI/BFBO9tjy'
 WHERE id = '33333333-3333-3333-3333-333333333332';
 
--- Technician: fieldops@keystone.io / wrench789
+-- Technician: fieldops@keystone.io / Password123!
 UPDATE users SET name = 'David Reynolds', email = 'fieldops@keystone.io',
-  password_hash = '$2a$10$uLuD5MjbsdX3QtgjbnNZFOxqP36qiUQ8IZGGcF5W7r9/6l82ZBbrq'
+  password_hash = '$2a$12$rIK1ft2bXsdxB4Gq/AGn..N8W/JRdbBQZ3peXem0EAlI/BFBO9tjy'
 WHERE id = '33333333-3333-3333-3333-333333333333';
 
--- Customer: samantha@apexhq.com / tenant321
+-- Customer: samantha@apexhq.com / Password123!
 UPDATE users SET name = 'Samantha Wright', email = 'samantha@apexhq.com',
-  password_hash = '$2a$10$IjTQCnNLu8e75NlwDiFjLOmDTVAz0Iil0RNPZA2AoxyYdySU2SizO'
+  password_hash = '$2a$12$rIK1ft2bXsdxB4Gq/AGn..N8W/JRdbBQZ3peXem0EAlI/BFBO9tjy'
 WHERE id = '33333333-3333-3333-3333-333333333334';
