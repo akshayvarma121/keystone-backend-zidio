@@ -29,6 +29,7 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+    repair: true
 
 jwt:
   secret: ${JWT_SECRET:8253a6a9b407b8979313db4331032df4c4cb8452dc97cc17bc83f06e5fa3f061}
@@ -57,6 +58,7 @@ spring:
     show-sql: false
   flyway:
     enabled: true
+    repair: true
 
 jwt:
   secret: ${JWT_SECRET:8253a6a9b407b8979313db4331032df4c4cb8452dc97cc17bc83f06e5fa3f061}
